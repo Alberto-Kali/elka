@@ -1,0 +1,138 @@
+class LogsPage extends StatelessWidget {
+  const LogsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FlutterMap(
+      options: MapOptions(
+          //counterRotate = v
+        initialCenter: LatLng(54.42412, 20.30335),
+        initialZoom: 9.2,
+        //onPositionChanged: (target, bounds) {
+          // Handle tap on map
+        //  _handleTapOnMap(context, target);
+        //},
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.app',
+          maxNativeZoom: 19,
+        ),
+        MarkerLayer(markers: []),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(
+              'OpenStreetMap contributors', // (external)
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+}
+
+@immutable
+class Marker {
+  final Key? key;
+  final LatLng point;
+  final Widget child;
+  final double width;
+  final double height;
+  final Alignment? alignment;
+  final bool? rotate;
+  const Marker({
+    this.key,
+    required this.point,
+    required this.child,
+    this.width = 30,
+    this.height = 30,
+    this.alignment,
+    this.rotate,
+  });
+  static Alignment computePixelAlignment({
+    required final double width,
+    required final double height,
+    required final double left,
+    required final double top,
+  }) =>
+      Alignment(
+        1.0 - 2 * left / width,
+        1.0 - 2 * top / height,
+      );
+}
+
+@immutable
+class MarkerLayer extends StatelessWidget {
+  final List<Marker> markers;
+  final Alignment alignment;
+  final bool rotate;
+  const MarkerLayer({
+    super.key,
+    required this.markers,
+    this.alignment = Alignment.center,
+    this.rotate = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final map = MapCamera.of(context);
+
+    return MobileLayerTransformer(
+      child: Stack(
+        children: (List<Marker> markers) sync* {
+          for (final m in markers) {
+            // Resolve real alignment
+            final left = 0.5 * m.width * ((m.alignment ?? alignment).x + 1);
+            final top = 0.5 * m.height * ((m.alignment ?? alignment).y + 1);
+            final right = m.width - left;
+            final bottom = m.height - top;
+
+            // Perform projection
+            final pxPoint = map.project(m.point);
+
+            // Cull if out of bounds
+            if (!map.pixelBounds.containsPartialBounds(
+              Bounds(
+                Point(pxPoint.x + left, pxPoint.y - bottom),
+                Point(pxPoint.x - right, pxPoint.y + top),
+              ),
+            )) continue;
+
+            // Apply map camera to marker position
+            final pos = pxPoint - map.pixelOrigin;
+
+            yield Positioned(
+              key: m.key,
+              width: m.width,
+              height: m.height,
+              left: pos.x - right,
+              top: pos.y - bottom,
+              child: (m.rotate ?? rotate)
+                  ? Transform.rotate(
+                angle: -map.rotationRad,
+                alignment: (m.alignment ?? alignment) * -1,
+                child: m.child,
+              )
+                  : m.child,
+            );
+          }
+        }(markers)
+            .toList(),
+      ),
+    );
+  }
+}
+
+
+
+
+
+ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tapped existing marker: (${point.latitude}, ${point.longitude})'),
+          duration: Duration(seconds: 1),
+          showCloseIcon: true,
+        ),
+      ),
