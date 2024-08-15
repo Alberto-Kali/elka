@@ -21,6 +21,7 @@ Future<void> main() async {
 
 final supabase = Supabase.instance.client;
 
+//UwU
 
 class SupabaseHelper {
   final SupabaseClient _supabaseClient;
